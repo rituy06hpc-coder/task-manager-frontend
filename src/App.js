@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 
 function App() {
   const [user, setUser] = useState(null);
@@ -58,80 +58,72 @@ function TaskManager() {
   const [priority, setPriority] = useState("Low");
   const [tasks, setTasks] = useState([]);
 
-  const API = `$ {process.env.REACT_APP_API_URL}/tasks`;
-  
+  const API = `${process.env.REACT_APP_API_URL}/tasks`;
 
   // GET TASKS
-  const getTasks = async () => {
-    try {
-      const res = await fetch(`${API}`);
+  const getTasks = async()=> {
+    try{
+      const res = await fetch(API);
       const data = await res.json();
       setTasks(data);
-    } catch (err) {
-      console.log("GET ERROR:", err);
+    } catch(err){
+      console.log("GET ERROR:",err);
     }
   };
-
-  useEffect(() => {
-    getTasks();
-  }, []);
-
   // ADD TASK
   const addTask = async () => {
-  console.log("ADD BUTTON CLICKED"); // 👈 STEP 2 (DEBUG)
+    await fetch(API, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        task,
+        deadline,
+        priority
+      })
+    });
 
-  await fetch(`${API}`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify({
-      task,
-      deadline,
-      priority
-    })
-  });
-
-  getTasks(); // refresh UI
-};
-      
+    getTasks();
+  };
 
   // DELETE TASK
   const deleteTask = async (id) => {
-  try {
-    await fetch(`${process.env.REACT_APP_API_URL}/tasks/${id}`, {
-      method: "DELETE",
-    });
+    try {
+      await fetch(`${process.env.REACT_APP_API_URL}/tasks/${id}`, {
+        method: "DELETE",
+      });
 
-    getTasks(); // refresh UI after delete
-  } catch (err) {
-    console.log("DELETE ERROR:", err);
-  }
-};
-const toggleTask = async (id) => {
-  try {
-    const res = await fetch(`${process.env.REACT_APP_API_URL}/tasks/${id}`, {
-      method: "PUT",
-    });
+      getTasks();
+    } catch (err) {
+      console.log("DELETE ERROR:", err);
+    }
+  };
 
-    const updated = await res.json();
+  // TOGGLE TASK
+  const toggleTask = async (id) => {
+    try {
+      const res = await fetch(`${process.env.REACT_APP_API_URL}/tasks/${id}`, {
+        method: "PUT",
+      });
 
-    // 🔥 INSTANT UI UPDATE (NO DELAY)
-    setTasks((prev) =>
-      prev.map((t) =>
-        t._id === id ? { ...t, completed: updated.completed } : t
-      )
-    );
+      const updated = await res.json();
 
-  } catch (err) {
-    console.log("TOGGLE ERROR:", err);
-  }
-};
- const getColor= (level)=> {
-  if (level=== "High") return "red";
-  if (level==="Medium") return "orange";
-  return "green";
- };
+      setTasks((prev) =>
+        prev.map((t) =>
+          t._id === id ? { ...t, completed: updated.completed } : t
+        )
+      );
+    } catch (err) {
+      console.log("TOGGLE ERROR:", err);
+    }
+  };
+
+  const getColor = (level) => {
+    if (level === "High") return "red";
+    if (level === "Medium") return "orange";
+    return "green";
+  };
 
   return (
     <div style={{ display: "flex", justifyContent: "center", marginTop: "50px" }}>
@@ -143,108 +135,46 @@ const toggleTask = async (id) => {
           value={task}
           onChange={(e) => setTask(e.target.value)}
           placeholder="Task Name"
-          style={{ width: "100%", padding: "8px", marginBottom: "10px" }}
         />
 
         <input
           type="date"
           value={deadline}
           onChange={(e) => setDeadline(e.target.value)}
-          style={{ width: "100%", padding: "8px", marginBottom: "10px" }}
         />
 
         <select
           value={priority}
           onChange={(e) => setPriority(e.target.value)}
-          style={{ width: "100%", padding: "8px", marginBottom: "10px" }}
         >
           <option>Low</option>
           <option>Medium</option>
           <option>High</option>
         </select>
 
-        <button
-          onClick={addTask}
-          style={{
-            width: "100%",
-            padding: "10px",
-            background: "green",
-            color: "white",
-            border: "none",
-            borderRadius: "5px",
-          }}
-        >
+        <button onClick={addTask}>
           Add Task
         </button>
 
-        {/* TASK LIST */}
-        <ul style={{ marginTop: "20px", padding: 0 }}>
+        <ul>
           {tasks.map((t) => (
-            <li
-  key={t._id}
-  style={{
-    listStyle: "none",
-    padding: "12px",
-    marginBottom: "10px",
-    background: "#fff",
-    borderRadius: "8px",
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    boxShadow: "0 2px 5px rgba(0,0,0,0.1)"
-  }}
->
+            <li key={t._id}>
               <div>
-  <b style={{
-    textDecoration: t.completed ? "line-through" : "none",
-    fontSize: "16px"
-  }}>
-    {t.task}
-  </b>
-  <br />
+                <b style={{ textDecoration: t.completed ? "line-through" : "none" }}>
+                  {t.task}
+                </b>
+                <br />
+                <small>📅 {t.deadline}</small>
+                <br />
+                <small style={{ color: getColor(t.priority) }}>
+                  🔥 {t.priority}
+                </small>
+              </div>
 
-  <small>📅 {t.deadline || "No deadline"}</small>
-  <br />
-
-  <small style={{ color: getColor(t.priority) }}>
-    🔥 {t.priority}
-  </small>
-  <br />
-
-  <small style={{
-    color: t.completed ? "green" : "red",
-    fontWeight: "bold"
-  }}>
-    {t.completed ? "✅ Done" : "⏳ Pending"}
-  </small>
-</div>
-
-              <button
-                onClick={() => deleteTask(t._id)}
-                style={{
-                  background: "red",
-                  color: "white",
-                  border: "none",
-                  borderRadius: "5px",
-                  padding: "5px 10px",
-                  marginRight: "5px"
-                }}
-              >
-                Delete
+              <button onClick={() => deleteTask(t._id)}>Delete</button>
+              <button onClick={() => toggleTask(t._id)}>
+                {t.completed ? "Undo" : "Done"}
               </button>
-              <button
-  onClick={() => toggleTask(t._id)}
-  style={{
-    background: t.completed ? "gray" : "blue",
-    color: "white",
-    border: "none",
-    borderRadius: "5px",
-    padding: "5px 10px",
-    marginLeft: "5px"
-  }}
->
-  {t.completed ? "Undo" : "Done"}
-</button>
             </li>
           ))}
         </ul>
